@@ -37,11 +37,6 @@ env/
 .env
 .env.local
 
-# Vector Stores
-data/
-*.db
-*.sqlite
-*.chroma
 
 # Logs
 *.log
