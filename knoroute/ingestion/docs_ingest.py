@@ -1,206 +1,132 @@
-"""Documentation ingestion pipeline."""
-
+# ingestion/docs_ingest.py
+import sys
 import os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from pathlib import Path
-from typing import List, Optional
+from typing import List
+
+from langchain_community.document_loaders import TextLoader
+from langchain.text_splitter import MarkdownHeaderTextSplitter
 from langchain.schema import Document
-from langchain.text_splitter import MarkdownTextSplitter
-from langchain_community.document_loaders import (
-    DirectoryLoader,
-    TextLoader,
-    UnstructuredMarkdownLoader
-)
 
-from knoroute.vectorstores import DocsVectorStore
+from vectorstores.docs_db import get_docs_vectorstore
 
 
-class DocsIngestionPipeline:
+# ---------------------------------------------------
+# CONFIG
+# ---------------------------------------------------
+
+DOCS_PATH = "data/docs"
+
+IGNORED_DIRS = {
+    "img",
+    "css",
+    "js",
+    "learn",
+    "tutorial",
+    "about",
+    "data",
+    ".github",
+}
+
+MIN_CONTENT_LENGTH = 200  # skip tiny markdown files
+
+
+# ---------------------------------------------------
+# HELPERS
+# ---------------------------------------------------
+
+def should_ignore(path: Path) -> bool:
     """
-    Ingestion pipeline for documentation files.
-    Supports markdown and text files with hierarchical structure preservation.
+    Ignore non-documentation folders.
     """
-    
-    def __init__(self, vector_store: Optional[DocsVectorStore] = None):
-        """
-        Initialize the documentation ingestion pipeline.
-        
-        Args:
-            vector_store: DocsVectorStore instance (creates new if None)
-        """
-        self.vector_store = vector_store or DocsVectorStore()
-        self.text_splitter = MarkdownTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
-        )
-    
-    def load_directory(
-        self,
-        directory_path: str,
-        glob_pattern: str = "**/*.md",
-        doc_type: str = "guide"
-    ) -> List[Document]:
-        """
-        Load all documentation files from a directory.
-        
-        Args:
-            directory_path: Path to documentation directory
-            glob_pattern: File pattern to match (default: markdown files)
-            doc_type: Type of documentation (API, guide, reference, tutorial)
-            
-        Returns:
-            List of loaded documents
-        """
-        loader = DirectoryLoader(
-            directory_path,
-            glob=glob_pattern,
-            loader_cls=TextLoader,
-            loader_kwargs={"encoding": "utf-8"},
-            show_progress=True,
-        )
-        
-        documents = loader.load()
-        
-        # Add metadata
-        for doc in documents:
-            doc.metadata["doc_type"] = doc_type
-            doc.metadata["source"] = doc.metadata.get("source", "")
-            doc.metadata["section"] = self._extract_section(doc.metadata.get("source", ""))
-            doc.metadata["version"] = "latest"
-        
-        return documents
-    
-    def load_file(
-        self,
-        file_path: str,
-        doc_type: str = "guide",
-        section: str = "root"
-    ) -> List[Document]:
-        """
-        Load a single documentation file.
-        
-        Args:
-            file_path: Path to the file
-            doc_type: Type of documentation
-            section: Section/category
-            
-        Returns:
-            List of documents (may be chunked)
-        """
-        loader = TextLoader(file_path, encoding="utf-8")
-        documents = loader.load()
-        
-        # Add metadata
-        for doc in documents:
-            doc.metadata["doc_type"] = doc_type
-            doc.metadata["source"] = file_path
-            doc.metadata["section"] = section
-            doc.metadata["version"] = "latest"
-        
-        return documents
-    
-    def chunk_documents(self, documents: List[Document]) -> List[Document]:
-        """
-        Chunk documents using markdown-aware splitting.
-        
-        Args:
-            documents: List of documents to chunk
-            
-        Returns:
-            List of chunked documents
-        """
-        return self.text_splitter.split_documents(documents)
-    
-    def ingest_directory(
-        self,
-        directory_path: str,
-        glob_pattern: str = "**/*.md",
-        doc_type: str = "guide",
-        chunk: bool = True
-    ) -> List[str]:
-        """
-        Complete ingestion pipeline for a directory.
-        
-        Args:
-            directory_path: Path to documentation directory
-            glob_pattern: File pattern to match
-            doc_type: Type of documentation
-            chunk: Whether to chunk documents
-            
-        Returns:
-            List of document IDs
-        """
-        # Load documents
-        documents = self.load_directory(directory_path, glob_pattern, doc_type)
-        
-        # Chunk if requested
-        if chunk:
-            documents = self.chunk_documents(documents)
-        
-        # Add to vector store
-        doc_ids = self.vector_store.add_documents(documents)
-        
-        print(f"✓ Ingested {len(doc_ids)} document chunks from {directory_path}")
-        return doc_ids
-    
-    def ingest_file(
-        self,
-        file_path: str,
-        doc_type: str = "guide",
-        section: str = "root",
-        chunk: bool = True
-    ) -> List[str]:
-        """
-        Complete ingestion pipeline for a single file.
-        
-        Args:
-            file_path: Path to the file
-            doc_type: Type of documentation
-            section: Section/category
-            chunk: Whether to chunk the document
-            
-        Returns:
-            List of document IDs
-        """
-        # Load document
-        documents = self.load_file(file_path, doc_type, section)
-        
-        # Chunk if requested
-        if chunk:
-            documents = self.chunk_documents(documents)
-        
-        # Add to vector store
-        doc_ids = self.vector_store.add_documents(documents)
-        
-        print(f"✓ Ingested {len(doc_ids)} chunks from {file_path}")
-        return doc_ids
-    
-    def _extract_section(self, file_path: str) -> str:
-        """
-        Extract section from file path.
-        
-        Args:
-            file_path: Path to the file
-            
-        Returns:
-            Section name (parent directory or 'root')
-        """
-        path = Path(file_path)
-        if len(path.parts) > 1:
-            return path.parts[-2]  # Parent directory name
-        return "root"
+    for part in path.parts:
+        if part in IGNORED_DIRS:
+            return True
+    return False
 
 
-# Example usage
+def load_markdown_files(base_path: str) -> List[Document]:
+    """
+    Load markdown files recursively with filtering.
+    """
+    documents = []
+
+    for md_file in Path(base_path).rglob("*.md"):
+        if should_ignore(md_file):
+            continue
+
+        loader = TextLoader(str(md_file), encoding="utf-8")
+        docs = loader.load()
+
+        for doc in docs:
+            if len(doc.page_content) < MIN_CONTENT_LENGTH:
+                continue
+
+            doc.metadata = {
+                "source": "docs",
+                "file": md_file.name,
+                "path": str(md_file),
+                "topic": md_file.parent.name,
+            }
+
+            documents.append(doc)
+
+    return documents
+
+
+def split_by_headers(documents: List[Document]) -> List[Document]:
+    """
+    Header-based semantic chunking.
+    """
+
+    headers_to_split_on = [
+        ("#", "title"),
+        ("##", "section"),
+        ("###", "subsection"),
+    ]
+
+    splitter = MarkdownHeaderTextSplitter(
+        headers_to_split_on=headers_to_split_on
+    )
+
+    chunks: List[Document] = []
+
+    for doc in documents:
+        splits = splitter.split_text(doc.page_content)
+
+        for chunk in splits:
+            chunk.metadata.update(doc.metadata)
+
+        chunks.extend(splits)
+
+    return chunks
+
+
+# ---------------------------------------------------
+# INGESTION PIPELINE
+# ---------------------------------------------------
+
+def ingest_docs():
+    print("📘 Loading FastAPI documentation...")
+
+    raw_docs = load_markdown_files(DOCS_PATH)
+    print(f"✅ Loaded {len(raw_docs)} documentation files")
+
+    print("✂️  Splitting docs by markdown headers...")
+    chunks = split_by_headers(raw_docs)
+    print(f"✅ Created {len(chunks)} semantic chunks")
+
+    print("🧠 Storing embeddings in Docs Vector DB...")
+    vectordb = get_docs_vectorstore()
+
+    vectordb.add_documents(chunks)
+    vectordb.persist()
+
+    print("🎉 Docs ingestion completed successfully")
+
+
 if __name__ == "__main__":
-    # Initialize pipeline
-    pipeline = DocsIngestionPipeline()
-    
-    # Example: Ingest a documentation directory
-    # pipeline.ingest_directory(
-    #     directory_path="./docs",
-    #     glob_pattern="**/*.md",
-    #     doc_type="guide"
-    # )
-    
-    print("Documentation ingestion pipeline ready.")
-    print("Use pipeline.ingest_directory() or pipeline.ingest_file() to add documents.")
+    ingest_docs()

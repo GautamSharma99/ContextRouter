@@ -37,7 +37,7 @@ env/
 .env
 .env.local
 
-
+data/
 # Logs
 *.log
 logs/
