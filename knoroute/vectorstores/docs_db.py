@@ -1,8 +1,11 @@
 # vectorstores/docs_db.py
 
 import os
-from langchain_community.vectorstores import Chroma
+from pathlib import Path
+from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
+
+from knoroute.config import settings
 
 
 def get_docs_vectorstore() -> Chroma:
@@ -12,10 +15,11 @@ def get_docs_vectorstore() -> Chroma:
     """
 
     embedding = OpenAIEmbeddings(
-        model=os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+        model=settings.embedding_model,
+        openai_api_key=settings.openai_api_key
     )
 
-    persist_directory = "vectorstores/chroma/docs_db"
+    persist_directory = str(Path(settings.vector_store_path) / "docs_db")
 
     vectordb = Chroma(
         collection_name="fastapi_docs",

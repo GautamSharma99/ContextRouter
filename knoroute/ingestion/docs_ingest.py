@@ -2,16 +2,17 @@
 import sys
 import os
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add the project root to sys.path so knoroute can be imported
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from pathlib import Path
 from typing import List
 
 from langchain_community.document_loaders import TextLoader
-from langchain.text_splitter import MarkdownHeaderTextSplitter
-from langchain.schema import Document
+from langchain_text_splitters import MarkdownHeaderTextSplitter
+from langchain_core.documents import Document
 
-from vectorstores.docs_db import get_docs_vectorstore
+from knoroute.vectorstores.docs_db import get_docs_vectorstore
 
 
 # ---------------------------------------------------
@@ -27,7 +28,7 @@ IGNORED_DIRS = {
     "learn",
     "tutorial",
     "about",
-    "data",
+    "about",
     ".github",
 }
 
@@ -79,7 +80,7 @@ def load_markdown_files(base_path: str) -> List[Document]:
 
 def split_by_headers(documents: List[Document]) -> List[Document]:
     """
-    Header-based semantic chunking.
+    Header-based semantic chunking with empty-chunk filtering.
     """
 
     headers_to_split_on = [
@@ -98,12 +99,17 @@ def split_by_headers(documents: List[Document]) -> List[Document]:
         splits = splitter.split_text(doc.page_content)
 
         for chunk in splits:
-            chunk.metadata.update(doc.metadata)
+            # 🔥 CRITICAL FIX
+            if not chunk.page_content.strip():
+                continue
 
-        chunks.extend(splits)
+            if len(chunk.page_content.strip()) < 50:
+                continue
+
+            chunk.metadata.update(doc.metadata)
+            chunks.append(chunk)
 
     return chunks
-
 
 # ---------------------------------------------------
 # INGESTION PIPELINE
@@ -122,8 +128,12 @@ def ingest_docs():
     print("🧠 Storing embeddings in Docs Vector DB...")
     vectordb = get_docs_vectorstore()
 
+    if not chunks:
+        print("⚠️ No chunks to ingest. Exiting...")
+        return
+
     vectordb.add_documents(chunks)
-    vectordb.persist()
+    # vectordb.persist() # Auto-persisted in newer Chroma versions
 
     print("🎉 Docs ingestion completed successfully")
 

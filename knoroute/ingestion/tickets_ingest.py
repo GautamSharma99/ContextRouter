@@ -5,7 +5,7 @@ import csv
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from langchain.schema import Document
+from langchain_core.documents import Document
 
 from knoroute.vectorstores import TicketsVectorStore
 

@@ -3,9 +3,9 @@
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
-from langchain.output_parsers import PydanticOutputParser
-from langchain.schema import Document
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.documents import Document
 
 from knoroute.config import settings
 
@@ -152,7 +152,7 @@ Evaluate if this evidence is sufficient to answer the query.""")
 
 # Example usage
 if __name__ == "__main__":
-    from langchain.schema import Document
+    from langchain_core.documents import Document
     
     agent = EvaluatorAgent()
     

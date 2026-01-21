@@ -3,12 +3,13 @@
 from typing import List, Optional
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
-from langchain.schema import Document
-from langchain.retrievers import ContextualCompressionRetriever
-from langchain.retrievers.document_compressors import LLMChainExtractor
+from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI
 import chromadb
 from pathlib import Path
+from langchain.retrievers.contextual_compression import ContextualCompressionRetriever
+from langchain.retrievers.document_compressors import LLMChainExtractor
+
 
 from knoroute.config import settings
 

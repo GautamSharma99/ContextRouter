@@ -3,6 +3,7 @@ Centralized configuration management for the Agentic Knowledge Routing System.
 Uses Pydantic Settings for type-safe configuration with environment variable support.
 """
 
+import os
 from pydantic_settings import BaseSettings
 from pydantic import Field
 from typing import Literal
@@ -35,7 +36,7 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", env="LOG_LEVEL")
     
     class Config:
-        env_file = ".env"
+        env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
         env_file_encoding = "utf-8"
         case_sensitive = False
 

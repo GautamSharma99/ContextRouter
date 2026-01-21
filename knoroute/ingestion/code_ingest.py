@@ -4,8 +4,8 @@ import os
 import ast
 from pathlib import Path
 from typing import List, Optional, Dict
-from langchain.schema import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 
 from knoroute.vectorstores import CodeVectorStore

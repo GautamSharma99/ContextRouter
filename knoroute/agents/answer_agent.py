@@ -3,9 +3,9 @@
 from typing import List, Optional, Dict
 from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
-from langchain.output_parsers import PydanticOutputParser
-from langchain.schema import Document
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.documents import Document
 
 from knoroute.config import settings
 
@@ -169,7 +169,7 @@ Generate a grounded answer using ONLY the evidence provided.""")
 
 # Example usage
 if __name__ == "__main__":
-    from langchain.schema import Document
+    from langchain_core.documents import Document
     
     agent = AnswerAgent()
     

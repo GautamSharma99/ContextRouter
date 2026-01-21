@@ -3,8 +3,8 @@
 from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
-from langchain.output_parsers import PydanticOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import PydanticOutputParser
 
 from knoroute.config import settings
 from knoroute.agents.query_understanding import QueryUnderstanding

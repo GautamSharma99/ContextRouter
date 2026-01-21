@@ -1,7 +1,7 @@
 """Memory writer for learned insights."""
 
 from typing import Optional, List
-from langchain.schema import Document
+from langchain_core.documents import Document
 
 from knoroute.vectorstores import MemoryVectorStore
 

@@ -1,7 +1,7 @@
 """LangGraph workflow orchestration for the agentic RAG system."""
 
 from typing import TypedDict, Optional, List, Dict, Literal
-from langchain.schema import Document
+from langchain_core.documents import Document
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 

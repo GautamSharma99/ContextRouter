@@ -1,8 +1,8 @@
 """Retriever tools for LangGraph integration."""
 
 from typing import List, Dict
-from langchain.schema import Document
-from langchain.tools import Tool
+from langchain_core.documents import Document
+from langchain_core.tools import Tool
 
 from knoroute.vectorstores import (
     DocsVectorStore,
